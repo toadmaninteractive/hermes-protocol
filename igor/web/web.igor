@@ -1,0 +1,1405 @@
+using CommonProtocol;
+using DbProtocol;
+using DataProtocol;
+
+[* json.enabled string.enabled enum_descriptions]
+[ts file="web-protocol.ts"]
+module WebProtocol
+{
+    # Access control list record
+    record PersonnelRights
+    {
+      ?bool can_login = false;
+
+      ?bool can_update_personnel = false;
+      ?bool can_allocate_employee = false;
+      ?bool can_deallocate_employee = false;
+      ?bool can_link_project = false;
+
+      ?bool can_create_office = false;
+      ?bool can_update_office = false;
+      ?bool can_delete_office = false;
+
+      ?bool can_get_projects = false;
+      ?bool can_get_project = false;
+      ?bool can_create_project = false;
+      ?bool can_update_project = false;
+      ?bool can_delete_project = false;
+
+      ?bool can_get_visma_report = false;
+      ?bool can_create_visma_report = false;
+      ?bool can_update_visma_report = false;
+
+      ?bool can_get_roles = false;
+      ?bool can_get_role = false;
+      ?bool can_create_role = false;
+      ?bool can_update_role = false;
+      ?bool can_delete_role = false;
+      ?bool can_modify_role_for_office = false;
+
+      ?bool can_get_teams = false;
+      ?bool can_get_team = false;
+      ?bool can_create_team = false;
+      ?bool can_update_team = false;
+      ?bool can_delete_team = false;
+      ?bool can_add_team_members = false;
+      ?bool can_remove_team_members = false;
+      ?bool can_set_team_manager = false;
+
+      ?bool can_get_highlights = false;
+      ?bool can_get_highlight = false;
+      ?bool can_create_highlight = false;
+      ?bool can_update_highlight = false;
+      ?bool can_delete_highlight = false;
+      ?bool can_assign_highlights = false;
+
+      ?bool can_get_timesheet = false;
+      ?bool can_protect_timesheet = false;
+      ?bool can_unprotect_timesheet = false;
+      ?bool can_regenerate_timesheet = false;
+
+      ?bool can_sync_bamboo = false;
+      ?bool can_sync_ldap = false;
+    }
+
+    // HermesAuthService -> GetPersonnelStatus
+    record PersonnelStatusResponse
+    {
+        bool logged_in;
+        ?long user_id;
+        ?string email;
+        ?string username;
+    }
+
+    // HermesAuthService -> LoginPersonnel
+    record PersonnelLoginRequest
+    {
+        string username;
+        string password;
+    }
+
+    enum PersonnelLoginError
+    {
+        //
+        invalid_username;
+        invalid_password;
+        //
+        failure;
+        already_logged_in;
+        account_not_exists;
+        wrong_password;
+        account_is_blocked;
+        account_is_deleted;
+        forbidden;
+    }
+
+    record PersonnelLoginResponse: IResult
+    {
+        ?PersonnelLoginError error;
+        ?string session_id;
+        ?long user_id;
+        ?string email;
+        ?string username;
+    }
+
+    // HermesAdminService -> UpdatePersonnelAccount
+
+    [* patch_record]
+    record UpdatePersonnelAccountRequest
+    {
+        ?long office_id;
+        ?bool is_office_manager;
+        ?long role_id;
+        ?DateTime hired_at;
+        ?DateTime fired_at;
+    }
+
+    enum UpdatePersonnelAccountError
+    {
+        //
+        invalid_office_id;
+        invalid_is_office_manager;
+        invalid_role_id;
+        //
+        office_not_exists;
+        role_not_exists;
+    }
+
+    # Personnel accounts
+    enum PersonnelAccountOrderBy
+    {
+        id;
+        username;
+        name;
+        email;
+        office_id;
+        office_name;
+        office_country_alpha2;
+        office_country_name;
+        supervisor_id;
+        supervisor_username;
+        supervisor_name;
+        is_blocked;
+        is_deleted;
+        created_at;
+        updated_at;
+    }
+
+    # Personnel account roles
+    enum PersonnelAccountRoleOrderBy
+    {
+        personnel_id;
+        username;
+        project_id;
+        project_name;
+        user_role;
+    }
+
+    # Personnel groups
+    enum PersonnelGroupOrderBy
+    {
+        id;
+        name;
+        is_deleted;
+        member_count;
+        created_at;
+        updated_at;
+    }
+
+    # Personnel group roles
+    enum PersonnelGroupRoleOrderBy
+    {
+        group_id;
+        group_name;
+        project_id;
+        project_title;
+        group_role;
+    }
+
+    record AccessRoleUpdateRequest
+    {
+        AccessRole role;
+    }
+
+    # Settings (admin-oriented info)
+    record Settings
+    {
+        int personnel_session_duration;
+    }
+
+    # AdminService -> UpdateSettings
+    record SettingsUpdateRequest
+    {
+        ?int personnel_session_duration;
+    }
+
+    # Employees
+    record EmployeeAlloc
+    {
+        long project_id;
+    }
+
+    enum EmployeeAllocError
+    {
+        //
+        invalid_project_id;
+        //
+        project_not_exists;
+    }
+
+    # Offices
+    record CreateOfficeRequest
+    {
+        string name;
+        long country_id;
+        ?string city;
+        ?string address;
+        ?string postal_code;
+        ?long group_id;
+        ?string visma_country;
+        ?string visma_company_id;
+    }
+
+    [* patch_record]
+    record UpdateOfficeRequest
+    {
+        string name;
+        long country_id;
+        ?string city;
+        ?string address;
+        ?string postal_code;
+        ?long group_id;
+        ?string visma_country;
+        ?string visma_company_id;
+    }
+
+    enum OfficeManagementError
+    {
+        //
+        invalid_name;
+        invalid_country_id;
+        invalid_city;
+        invalid_address;
+        invalid_postal_code;
+        invalid_group_id;
+        //
+        country_not_exists;
+        group_not_exists;
+        //
+        name_already_exists;
+    }
+
+    # Projects
+    record CreateProjectRequest
+    {
+        string title;
+        string key;
+        ?long supervisor_id;
+        long leading_office_id;
+        ?string color;
+        string finance_code;
+        bool invoiceable;
+        bool is_archived = false;
+        ?TaskKind task_code;
+        ?DateTime started_at;
+        ?DateTime finished_at;
+    }
+
+    [* patch_record]
+    record UpdateProjectRequest
+    {
+        string title;
+        string key;
+        ?long supervisor_id;
+        long leading_office_id;
+        ?string color;
+        string finance_code;
+        bool invoiceable;
+        bool is_archived;
+        ?TaskKind task_code;
+        ?DateTime started_at;
+        ?DateTime finished_at;
+    }
+
+    enum ProjectError
+    {
+        //
+        invalid_title;
+        invalid_key;
+        invalid_supervisor_id;
+        invalid_leading_office_id;
+        invalid_color;
+        invalid_finance_code;
+        invalid_invoiceable;
+        invalid_is_archived;
+        invalid_task_code;
+        //
+        supervisor_not_exists;
+        leading_office_not_exists;
+        //
+        title_already_exists;
+        key_already_exists;
+    }
+
+    # Timesheet
+    record TimesheetCellAlloc
+    {
+        long project_id;
+    }
+
+    enum TimesheetCellAllocError
+    {
+        //
+        invalid_project_id;
+        //
+        project_not_exists;
+    }
+
+    record TimesheetCellAllocMany
+    {
+        ?long project_id;
+        DateTime date_since;
+        DateTime date_till;
+    }
+
+    enum TimesheetCellAllocManyError
+    {
+        //
+        invalid_project_id;
+        invalid_date_since;
+        invalid_date_till;
+        //
+        project_not_exists;
+    }
+
+    record TimesheetCellOff
+    {
+        TimeOffKind time_off;
+    }
+
+    enum TimesheetCellOffError
+    {
+        //
+        invalid_time_off;
+    }
+
+    // Bulk timesheet actions
+
+    record TimesheetSelectorMonth
+    {
+        int year;
+        int month;
+    }
+
+    // [elixir string.custom="Hermes.Timesheet.Selector"]
+    // union TimesheetSelector
+    // {
+    //     ids => list<long>;
+    //     months => list<TimesheetSelectorMonth>;
+    // }
+    record TimesheetSelector
+    {
+        list<long> ids;
+        // ?list<TimesheetSelectorMonth> months;
+    }
+
+    interface IBulkTimesheetAction
+    {
+        TimesheetSelector cells;
+    }
+
+    // interface IBulkTimesheetAction
+    // {
+    //     list<long> cell_ids;
+    // }
+
+    record BulkTimesheetAction: IBulkTimesheetAction
+    {
+    }
+
+    record BulkTimesheetAllocate: IBulkTimesheetAction
+    {
+        long project_id;
+    }
+
+    record BulkTimesheetTimeOff: IBulkTimesheetAction
+    {
+        TimeOffKind time_off;
+    }
+
+    record BulkTimesheetProtect: IBulkTimesheetAction
+    {
+        ?string comment;
+    }
+
+    record MonthlyEmployeeTimesheet
+    {
+        long personnel_id;
+        string personnel_username;
+        string personnel_name;
+        ?long allocated_to_project_id;
+        ?string allocated_to_project_name;
+        json linked_to_projects;
+        json highlights;
+        int year;
+        int month;
+        list<TimesheetCell> cells = [];
+    }
+
+    # Roles
+    record CreateRoleRequest
+    {
+        string code;
+        string title;
+    }
+
+    [* patch_record]
+    record UpdateRoleRequest
+    {
+        string code;
+        string title;
+    }
+
+    enum RoleError
+    {
+        //
+        invalid_code;
+        invalid_title;
+        //
+        code_already_exists;
+        title_already_exists;
+    }
+
+    enum RoleForOfficeError
+    {
+        invalid_role;
+        invalid_office;
+        member_not_exists;
+        member_not_added;
+        member_already_added;
+    }
+
+    # Highlights
+    record CreateHighlightRequest
+    {
+        string code;
+        string title;
+    }
+
+    [* patch_record]
+    record UpdateHighlightRequest
+    {
+        string code;
+        string title;
+    }
+
+    enum HighlightError
+    {
+        //
+        invalid_code;
+        invalid_title;
+        //
+        code_already_exists;
+        title_already_exists;
+    }
+
+    # Teams
+    record CreateTeamRequest
+    {
+        string title;
+    }
+
+    [* patch_record]
+    record UpdateTeamRequest
+    {
+        string title;
+    }
+
+    enum TeamError
+    {
+        //
+        invalid_title;
+        invalid_created_by;
+        //
+        title_already_exists;
+        created_by_not_exists;
+    }
+
+    enum TeamMemberError
+    {
+        member_not_exists;
+        member_not_added;
+        member_already_added;
+    }
+
+    enum TeamManagerError
+    {
+        manager_not_exists;
+        // manager_not_added;
+        // manager_already_added;
+        manager_is_owner;
+    }
+
+    record SyncBambooTaskRequest
+    {
+        ?long office_id;
+        ?long project_id;
+        ?long team_id;
+    }
+
+    enum TaskError
+    {
+        //
+        invalid_office_id;
+        invalid_project_id;
+        invalid_team_id;
+        //
+    }
+
+    enum HistoryEntryOrderBy
+    {
+        id;
+        actor;
+        actor_id;
+        actor_name;
+        actor_username;
+        entity;
+        entity_id;
+        entity_param;
+        operation;
+        is_bulk;
+        result;
+        created_at;
+    }
+
+    record CreateVismaReportRequest
+    {
+        long office_id;
+        int year;
+        int month;
+        string comment;
+        ?list<long> omit_ids = [];
+        ?list<string> omit_uids = [];
+        ?bool pretty = false;
+    }
+
+    [* patch_record]
+    record UpdateVismaReportRequest
+    {
+        string comment;
+    }
+
+    enum VismaReportOrderBy
+    {
+        id;
+        created_by;
+        created_by_username;
+        created_by_name;
+        created_at;
+        updated_at;
+    }
+
+    enum VismaReportError
+    {
+        invalid_office_id;
+        invalid_year;
+        invalid_month;
+        invalid_comment;
+    }
+
+    enum VismaReportDeliveryError
+    {
+        invalid_auth;
+        invalid_visma_country;
+        invalid_visma_company_id;
+    }
+
+    record OmittedEmployees
+    {
+        ?list<long> omit_ids = [];
+        ?list<string> omit_uids = [];
+    }
+
+    [elixir http.server]
+    [ts http.client file="web-auth-protocol.service.ts"]
+    webservice HermesAuthService
+    {
+        # Get current personnel session status
+        [elixir http.handler="GetPersonnelStatus" http.callback="WebProtocol.HermesAuthService.Impl" http.session_key="api" http.if="Hermes.can_login?"]
+        GetPersonnelStatus => GET /api/auth/personnel/status ->
+            200: PersonnelStatusResponse;
+
+        # Login personnel
+        [elixir http.handler="LoginPersonnel" http.callback="WebProtocol.HermesAuthService.Impl" http.conn]
+        LoginPersonnel => POST /api/auth/personnel/login {PersonnelLoginRequest request} ->
+            200: PersonnelLoginResponse,
+            400: BadRequestError<PersonnelLoginError>;
+
+        # Logout personnel
+        [elixir http.handler="LogoutPersonnel" http.callback="WebProtocol.HermesAuthService.Impl" http.conn]
+        LogoutPersonnel => PUT /api/auth/personnel/logout {Empty request} ->
+            200: GenericResponse;
+
+        # Get current personnel profile
+        [elixir http.handler="GetMyPersonnelProfile" http.callback="WebProtocol.HermesAuthService.Impl" http.session_key="api" http.if="Hermes.can_login?" http.hint="read"]
+        GetMyPersonnelProfile => GET /api/auth/personnel/profile ->
+            200: PersonnelAccount,
+            404: NotFoundError;
+
+        # Get current personnel roles for a project
+        [elixir http.handler="GetMyRolesForProject" http.callback="WebProtocol.HermesAuthService.Impl" http.session_key="api" http.if="Hermes.can_login?" http.hint="read"]
+        GetMyRolesForProject => GET /api/auth/personnel/roles/{long project_id}/me ->
+            200: PersonnelAccountRole,
+            403: ForbiddenError,
+            404: NotFoundError;
+    }
+
+    [elixir http.server]
+    [ts http.client file="web-admin-protocol.service.ts"]
+    webservice HermesAdminService
+    {
+        # Get single personnel account
+        [elixir http.handler="PersonnelAccount" http.callback="WebProtocol.HermesAdminService.Impl" http.session_key="api" http.if="Hermes.can_login?" http.hint="read"]
+        GetPersonnelAccount => GET /api/admin/personnel/{long id} ->
+            200: PersonnelAccount,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Update personnel account
+        [elixir http.handler="PersonnelAccount" http.callback="WebProtocol.HermesAdminService.Impl" http.session_key="api" http.if="Hermes.can_update_personnel?" http.hint="update"]
+        UpdatePersonnelAccount => PUT /api/admin/personnel/{long id} UpdatePersonnelAccountRequest ->
+            200: PersonnelAccount,
+            400: BadRequestError<UpdatePersonnelAccountError>,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Get single personnel account by username
+        [elixir http.handler="GetPersonnelAccountByUsername" http.callback="WebProtocol.HermesAdminService.Impl" http.session_key="api" http.if="Hermes.can_login?" http.hint="read"]
+        GetPersonnelAccountByUsername => GET /api/admin/personnel/username/{string username} ->
+            200: PersonnelAccount,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Get slice of personnel account collection
+        [elixir http.handler="GetPersonnelAccounts" http.callback="WebProtocol.HermesAdminService.Impl" http.session_key="api" http.if="Hermes.can_login?" http.hint="list"]
+        GetPersonnelAccounts => GET /api/admin/personnels
+            ?needle={?string needle}
+            &order_by={PersonnelAccountOrderBy order_by}
+            &order_dir={OrderDirection order_dir}
+            &offset={int offset}
+            &limit={int limit} ->
+                200: CollectionSlice<PersonnelAccount>,
+                403: ForbiddenError;
+
+        # Get slice of personnel account role collection
+        [elixir http.handler="GetPersonnelAccountRoles" http.callback="WebProtocol.HermesAdminService.Impl" http.session_key="api" http.if="Hermes.can_login?" http.hint="list"]
+        GetPersonnelAccountRoles => GET /api/admin/personnel/{long id}/roles
+            ?needle={?string needle}
+            &order_by={PersonnelAccountRoleOrderBy order_by}
+            &order_dir={OrderDirection order_dir}
+            &offset={int offset}
+            &limit={int limit} ->
+                200: CollectionSlice<PersonnelAccountRole>,
+                403: ForbiddenError;
+
+        # Get slice of collection of personnel account roles on a project
+        [elixir http.handler="GetPersonnelAccountRolesForProject" http.callback="WebProtocol.HermesAdminService.Impl" http.session_key="api" http.if="Hermes.can_login?" http.hint="list"]
+        GetPersonnelAccountRolesForProject => GET /api/admin/personnel/project/{long project_id}/roles
+            ?needle={?string needle}
+            &order_by={PersonnelAccountRoleOrderBy order_by}
+            &order_dir={OrderDirection order_dir}
+            &offset={int offset}
+            &limit={int limit} ->
+                200: CollectionSlice<PersonnelAccountRole>,
+                403: ForbiddenError;
+
+        # Get personnel account role
+        [elixir http.handler="AdminPersonnelAccountRole" http.callback="WebProtocol.HermesAdminService.Impl" http.session_key="api" http.if="Hermes.can_login?" http.hint="read"]
+        GetPersonnelAccountRole => GET /api/admin/personnel/{long id}/roles/{long project_id} ->
+            200: PersonnelAccountRole,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Set personnel account role
+        [elixir http.handler="AdminPersonnelAccountRole" http.callback="WebProtocol.HermesAdminService.Impl" http.session_key="api" http.if="Hermes.can_login?"]
+        SetPersonnelAccountRole => PUT /api/admin/personnel/{long id}/roles/{long project_id} {AccessRoleUpdateRequest request} ->
+            200: GenericResponse,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Reset personnel account role
+        [elixir http.handler="AdminPersonnelAccountRole" http.callback="WebProtocol.HermesAdminService.Impl" http.session_key="api" http.if="Hermes.can_login?"]
+        ResetPersonnelAccountRole => DELETE /api/admin/personnel/{long id}/roles/{long project_id} ->
+            200: GenericResponse,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Get single personnel group
+        [elixir http.handler="GetPersonnelGroup" http.callback="WebProtocol.HermesAdminService.Impl" http.session_key="api" http.if="Hermes.can_login?" http.hint="read"]
+        GetPersonnelGroup => GET /api/admin/personnel-groups/{long id} ->
+            200: PersonnelGroup,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Get single personnel group by name
+        [elixir http.handler="GetPersonnelGroupByName" http.callback="WebProtocol.HermesAdminService.Impl" http.session_key="api" http.if="Hermes.can_login?" http.hint="read"]
+        GetPersonnelGroupByName => GET /api/admin/personnel-groups/name/{string name} ->
+            200: PersonnelGroup,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Get slice of personnel group collection
+        [elixir http.handler="GetPersonnelGroups" http.callback="WebProtocol.HermesAdminService.Impl" http.session_key="api" http.if="Hermes.can_login?" http.hint="list"]
+        GetPersonnelGroups => GET /api/admin/personnel-groups
+            ?needle={?string needle}
+            &order_by={PersonnelGroupOrderBy order_by}
+            &order_dir={OrderDirection order_dir}
+            &offset={int offset}
+            &limit={int limit} ->
+                200: CollectionSlice<PersonnelGroup>,
+                403: ForbiddenError;
+
+        # Get slice of personnel group role collection
+        [elixir http.handler="GetPersonnelGroupRoles" http.callback="WebProtocol.HermesAdminService.Impl" http.session_key="api" http.if="Hermes.can_login?"]
+        GetPersonnelGroupRoles => GET /api/admin/personnel-groups/{long id}/roles
+            ?needle={?string needle}
+            &order_by={PersonnelGroupRoleOrderBy order_by}
+            &order_dir={OrderDirection order_dir}
+            &offset={int offset}
+            &limit={int limit} ->
+                200: CollectionSlice<PersonnelGroupRole>,
+                403: ForbiddenError;
+
+        [elixir http.handler="GetPersonnelGroupRolesForProject" http.callback="WebProtocol.HermesAdminService.Impl" http.session_key="api" http.if="Hermes.can_login?"]
+        GetPersonnelGroupRolesForProject => GET /api/admin/personnel-groups/project/{long project_id}/roles
+            ?needle={?string needle}
+            &order_by={PersonnelGroupRoleOrderBy order_by}
+            &order_dir={OrderDirection order_dir}
+            &offset={int offset}
+            &limit={int limit} ->
+                200: CollectionSlice<PersonnelGroupRole>,
+                403: ForbiddenError;
+
+        # Get personnel group role
+        [elixir http.handler="AdminPersonnelGroupRole" http.callback="WebProtocol.HermesAdminService.Impl" http.session_key="api" http.if="Hermes.can_login?"]
+        GetPersonnelGroupRole => GET /api/admin/personnel-groups/{long id}/roles/{long project_id} ->
+            200: PersonnelGroupRole,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Set personnel group role
+        [elixir http.handler="AdminPersonnelGroupRole" http.callback="WebProtocol.HermesAdminService.Impl" http.session_key="api" http.if="Hermes.can_login?"]
+        SetPersonnelGroupRole => PUT /api/admin/personnel-groups/{long id}/roles/{long project_id} {AccessRoleUpdateRequest request} ->
+            200: GenericResponse,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Reset personnel group role
+        [elixir http.handler="AdminPersonnelGroupRole" http.callback="WebProtocol.HermesAdminService.Impl" http.session_key="api" http.if="Hermes.can_login?"]
+        ResetPersonnelGroupRole => DELETE /api/admin/personnel-groups/{long id}/roles/{long project_id} ->
+            200: GenericResponse,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Get settings
+        [elixir http.handler="AdminSettings" http.callback="WebProtocol.HermesAdminService.Impl" http.session_key="api" http.if="Hermes.can_login?" http.hint="read"]
+        GetSettings => GET /api/admin/settings ->
+            200: Settings,
+            403: ForbiddenError;
+
+        # Update settings
+        [elixir http.handler="AdminSettings" http.callback="WebProtocol.HermesAdminService.Impl" http.session_key="api" http.if="Hermes.can_login?" http.hint="update"]
+        UpdateSettings => PUT /api/admin/settings {SettingsUpdateRequest request} ->
+            200: GenericResponse,
+            403: ForbiddenError;
+    }
+
+    [elixir http.server]
+    [ts http.client file="web-employee-protocol.service.ts"]
+    webservice HermesEmployeeService
+    {
+        # Get employee by ID
+        [elixir http.handler="GetEmployee" http.callback="WebProtocol.HermesEmployeeService.Impl" http.session_key="api" http.if="Hermes.can_login?" http.hint="read"]
+        GetEmployee => GET /api/employees/{long id} ->
+            200: PersonnelAccount,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Get employee by username
+        [elixir http.handler="GetEmployeeByUsername" http.callback="WebProtocol.HermesEmployeeService.Impl" http.session_key="api" http.if="Hermes.can_login?" http.hint="read"]
+        GetEmployeeByUsername => GET /api/employees/username/{string username} ->
+            200: PersonnelAccount,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Get employees
+        [elixir http.handler="GetEmployees" http.callback="WebProtocol.HermesEmployeeService.Impl" http.session_key="api" http.if="Hermes.can_login?" http.hint="list"]
+        GetEmployees => GET /api/employees
+            ?needle={?string needle}
+            &order_by={PersonnelAccountOrderBy order_by}
+            &order_dir={OrderDirection order_dir}
+            &offset={int offset}
+            &limit={int limit} ->
+                200: CollectionSlice<PersonnelAccount>,
+                403: ForbiddenError;
+
+        # Get all employee for supplied office
+        [elixir http.handler="GetEmployeesByOffice" http.callback="WebProtocol.HermesEmployeeService.Impl" http.session_key="api" http.if="Hermes.can_login?" http.hint="list"]
+        GetEmployeesByOffice => GET /api/employees/office/{long office_id} ->
+            200: Collection<PersonnelAccount>,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Get all employee assigned to supplied project
+        [elixir http.handler="GetEmployeesByProject" http.callback="WebProtocol.HermesEmployeeService.Impl" http.session_key="api" http.if="Hermes.can_login?" http.hint="list"]
+        GetEmployeesByProject => GET /api/employees/project/{long project_id}
+            ?since={?Date since}
+            &till={?Date till}
+        ->
+            200: Collection<PersonnelAccount>,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Allocate employee to project
+        [elixir http.handler="EmployeeAlloc" http.callback="WebProtocol.HermesEmployeeService.Impl" http.session_key="api" http.if="Hermes.can_allocate_employee?"]
+        AllocateEmployee => PUT /api/employees/{long id}/alloc EmployeeAlloc ->
+            200: PersonnelAccount,
+            400: BadRequestError<EmployeeAllocError>,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Deallocate employee from project
+        [elixir http.handler="EmployeeAlloc" http.callback="WebProtocol.HermesEmployeeService.Impl" http.session_key="api" http.if="Hermes.can_deallocate_employee?"]
+        DeallocateEmployee => DELETE /api/employees/{long id}/alloc ->
+            200: PersonnelAccount,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Add an employee highlight to particular project
+        [elixir http.handler="EmployeeHighlight" http.callback="WebProtocol.HermesEmployeeService.Impl" http.session_key="api" http.if="Hermes.can_assign_highlights?"]
+        AddEmployeeHighlight => PUT /api/employees/{long personnel_id}/project/{long project_id}/highlight/{long highlight_id} Empty ->
+            200: PersonnelAccount,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Remove an employee highlight from particular project
+        [elixir http.handler="EmployeeHighlight" http.callback="WebProtocol.HermesEmployeeService.Impl" http.session_key="api" http.if="Hermes.can_assign_highlights?"]
+        RemoveEmployeeHighlight => DELETE /api/employees/{long personnel_id}/project/{long project_id}/highlight/{long highlight_id} ->
+            200: PersonnelAccount,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Add an employee link to particular project
+        [elixir http.handler="EmployeeProject" http.callback="WebProtocol.HermesEmployeeService.Impl" http.session_key="api" http.if="Hermes.can_link_project?"]
+        LinkEmployeeToProject => PUT /api/employees/{long personnel_id}/project/{long project_id} Empty ->
+            200: PersonnelAccount,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Remove an employee link to particular project
+        [elixir http.handler="EmployeeProject" http.callback="WebProtocol.HermesEmployeeService.Impl" http.session_key="api" http.if="Hermes.can_link_project?"]
+        UnlinkEmployeeFromProject => DELETE /api/employees/{long personnel_id}/project/{long project_id} ->
+            200: PersonnelAccount,
+            403: ForbiddenError,
+            404: NotFoundError;
+    }
+
+    [elixir http.server]
+    [ts http.client file="web-directory-protocol.service.ts"]
+    webservice HermesDirectoryService
+    {
+        # Get all countries
+        [elixir http.handler="Countries" http.callback="WebProtocol.HermesDirectoryService.Impl" http.session_key="api" http.if="Hermes.can_login?" http.hint="list"]
+        GetCountries => GET /api/directory/countries ->
+            200: Collection<Country>,
+            403: ForbiddenError;
+
+        # Get country
+        [elixir http.handler="Country" http.callback="WebProtocol.HermesDirectoryService.Impl" http.session_key="api" http.if="Hermes.can_login?" http.hint="read"]
+        GetCountry => GET /api/directory/countries/{int id} ->
+            200: Country,
+            403: ForbiddenError,
+            404: NotFoundError;
+    }
+
+    [elixir http.server]
+    [ts http.client file="web-office-protocol.service.ts"]
+    webservice HermesOfficeService
+    {
+        # Get offices
+        [elixir http.handler="Offices" http.callback="WebProtocol.HermesOfficeService.Impl" http.session_key="api" http.if="Hermes.can_login?" http.hint="list"]
+        GetOffices => GET /api/offices ->
+            200: Collection<Office>,
+            403: ForbiddenError;
+
+        # Get an office
+        [elixir http.handler="Office" http.callback="WebProtocol.HermesOfficeService.Impl" http.session_key="api" http.if="Hermes.can_login?" http.hint="read"]
+        GetOffice => GET /api/offices/{long id} ->
+            200: Office,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Create an office
+        [elixir http.handler="Offices" http.callback="WebProtocol.HermesOfficeService.Impl" http.session_key="api" http.if="Hermes.can_create_office?" http.hint="create"]
+        CreateOffice => POST /api/offices CreateOfficeRequest ->
+            200: Office,
+            400: BadRequestError<OfficeManagementError>,
+            403: ForbiddenError;
+
+        # Update an office
+        [elixir http.handler="Office" http.callback="WebProtocol.HermesOfficeService.Impl" http.session_key="api" http.if="Hermes.can_update_office?" http.hint="update"]
+        UpdateOffice => PUT /api/offices/{long id} UpdateOfficeRequest ->
+            200: Office,
+            400: BadRequestError<OfficeManagementError>,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Delete an office
+        [elixir http.handler="Office" http.callback="WebProtocol.HermesOfficeService.Impl" http.session_key="api" http.if="Hermes.can_delete_office?" http.hint="delete"]
+        DeleteOffice => DELETE /api/offices/{long id} ->
+            200: GenericResponse,
+            403: ForbiddenError,
+            404: NotFoundError;
+    }
+
+    [elixir http.server]
+    [ts http.client file="project-protocol.service.ts"]
+    webservice HermesProjectService
+    {
+        # Get projects
+        [elixir http.handler="Projects" http.callback="WebProtocol.HermesProjectService.Impl" http.session_key="api" http.if="Hermes.can_get_projects?" http.hint="list"]
+        GetProjects => GET /api/projects ->
+            200: Collection<Project>,
+            403: ForbiddenError;
+
+        # Get a project
+        [elixir http.handler="Project" http.callback="WebProtocol.HermesProjectService.Impl" http.session_key="api" http.if="Hermes.can_get_project?" http.hint="read"]
+        GetProject => GET /api/projects/{long id} ->
+            200: Project,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Create a project
+        [elixir http.handler="Projects" http.callback="WebProtocol.HermesProjectService.Impl" http.session_key="api" http.if="Hermes.can_create_project?" http.hint="create"]
+        CreateProject => POST /api/projects CreateProjectRequest ->
+            200: Project,
+            400: BadRequestError<ProjectError>,
+            403: ForbiddenError;
+
+        # Update a project
+        [elixir http.handler="Project" http.callback="WebProtocol.HermesProjectService.Impl" http.session_key="api" http.if="Hermes.can_update_project?" http.hint="update"]
+        UpdateProject => PUT /api/projects/{long id} UpdateProjectRequest ->
+            200: Project,
+            400: BadRequestError<ProjectError>,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Delete a project
+        [elixir http.handler="Project" http.callback="WebProtocol.HermesProjectService.Impl" http.session_key="api" http.if="Hermes.can_delete_project?" http.hint="delete"]
+        DeleteProject => DELETE /api/projects/{long id} ->
+            200: GenericResponse,
+            403: ForbiddenError,
+            404: NotFoundError;
+    }
+
+    [elixir http.server]
+    [ts http.client file="timesheet-protocol.service.ts"]
+    webservice HermesTimesheetService
+    {
+        # Get a timesheet cell
+        [elixir http.handler="TimesheetCell" http.callback="WebProtocol.HermesTimesheetService.Impl" http.session_key="api" http.if="Hermes.can_get_timesheet?"]
+        GetTimesheetCell => GET /api/timesheet/cell/{long cell_id} ->
+            200: TimesheetCell,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Allocate a lot of timesheet cells for a project
+        [elixir http.handler="TimesheetBulkAllocate" http.callback="WebProtocol.HermesTimesheetService.Impl" http.session_key="api" http.if="Hermes.can_get_timesheet?"]
+        AllocateTimesheetCellBulk => PUT /api/timesheet/bulk/allocate BulkTimesheetAllocate ->
+            200: list<TimesheetCell>,
+            400: BadRequestError<TimesheetCellAllocError>,
+            403: ForbiddenError;
+
+        # Reset a lot of timesheet cells for a project
+        [elixir http.handler="TimesheetBulkReset" http.callback="WebProtocol.HermesTimesheetService.Impl" http.session_key="api" http.if="Hermes.can_get_timesheet?"]
+        ResetTimesheetCellBulk => PUT /api/timesheet/bulk/reset BulkTimesheetAction ->
+            200: list<TimesheetCell>,
+            403: ForbiddenError;
+
+        # Set a time_off to a lot of timesheet cells
+        [elixir http.handler="TimesheetBulkTimeOff" http.callback="WebProtocol.HermesTimesheetService.Impl" http.session_key="api" http.if="Hermes.can_get_timesheet?"]
+        SetTimesheetCellOffBulk => PUT /api/timesheet/bulk/off BulkTimesheetTimeOff ->
+            200: list<TimesheetCell>,
+            400: BadRequestError<TimesheetCellOffError>,
+            403: ForbiddenError;
+
+        # Protect a lot of timesheet cells from changes
+        [elixir http.handler="TimesheetBulkProtect" http.callback="WebProtocol.HermesTimesheetService.Impl" http.session_key="api" http.if="Hermes.can_protect_timesheet?"]
+        ProtectTimesheetCellBulk => PUT /api/timesheet/bulk/protect BulkTimesheetProtect ->
+            200: list<TimesheetCell>,
+            403: ForbiddenError;
+
+        # Remove protection from a lot of timesheet cells
+        [elixir http.handler="TimesheetBulkUnprotect" http.callback="WebProtocol.HermesTimesheetService.Impl" http.session_key="api" http.if="Hermes.can_unprotect_timesheet?"]
+        UnprotectTimesheetCellBulk => PUT /api/timesheet/bulk/unprotect BulkTimesheetProtect ->
+            200: list<TimesheetCell>,
+            403: ForbiddenError;
+
+        # Regenerate timesheet cells for all employees for the period specified
+        [elixir http.handler="TimesheetRegenerate" http.callback="WebProtocol.HermesTimesheetService.Impl" http.session_key="api" http.if="Hermes.can_regenerate_timesheet?"]
+        RegenerateTimesheetCells => PUT /api/timesheet/monthly/{int year}/{int month}/regenerate Empty ->
+            200: GenericResponse,
+            403: ForbiddenError;
+
+        // ------------ TODO: consider removal
+        # Protect a monthly range of timesheet cells for particular employee from changes
+        [elixir http.handler="TimesheetCellProtectMonthForEmployee" http.callback="WebProtocol.HermesTimesheetService.Impl" http.session_key="api" http.if="Hermes.can_protect_timesheet?"]
+        ProtectTimesheetMonthForEmployee => PUT /api/timesheet/monthly/{int year}/{int month}/employee/{long personnel_id}/protect Empty ->
+            200: GenericResponse,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        // ------------ TODO: consider removal
+        # Remove protection from a monthly range of timesheet cells for particular employee
+        [elixir http.handler="TimesheetCellProtectMonthForEmployee" http.callback="WebProtocol.HermesTimesheetService.Impl" http.session_key="api" http.if="Hermes.can_unprotect_timesheet?"]
+        UnprotectTimesheetMonthForEmployee => DELETE /api/timesheet/monthly/{int year}/{int month}/employee/{long personnel_id}/protect ->
+            200: GenericResponse,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Get monthly timesheet for specified year and month and employee
+        [elixir http.handler="MonthlyEmployeeTimesheet" http.callback="WebProtocol.HermesTimesheetService.Impl" http.session_key="api" http.if="Hermes.can_get_timesheet?"]
+        GetMonthlyTimesheetForEmployee => GET /api/timesheet/monthly/{int year}/{int month}/employee/{long personnel_id} ->
+            200: MonthlyEmployeeTimesheet,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Get monthly timesheet for specified year and month and project
+        [elixir http.handler="MonthlyProjectTimesheet" http.callback="WebProtocol.HermesTimesheetService.Impl" http.session_key="api" http.if="Hermes.can_get_timesheet?"]
+        GetMonthlyTimesheetForProject => GET /api/timesheet/monthly/{int year}/{int month}/project/{long project_id} ->
+            200: Collection<MonthlyEmployeeTimesheet>,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Get monthly timesheet for specified year and month and office
+        [elixir http.handler="MonthlyOfficeTimesheet" http.callback="WebProtocol.HermesTimesheetService.Impl" http.session_key="api" http.if="Hermes.can_get_timesheet?"]
+        GetMonthlyTimesheetForOffice => GET /api/timesheet/monthly/{int year}/{int month}/office/{long office_id} ->
+            200: Collection<MonthlyEmployeeTimesheet>,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Get monthly timesheet for specified year and month and team
+        [elixir http.handler="MonthlyTeamTimesheet" http.callback="WebProtocol.HermesTimesheetService.Impl" http.session_key="api" http.if="Hermes.can_get_timesheet?"]
+        GetMonthlyTimesheetForTeam => GET /api/timesheet/monthly/{int year}/{int month}/team/{long team_id} ->
+            200: Collection<MonthlyEmployeeTimesheet>,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Get monthly timesheet for specified year and month for everyone
+        [elixir http.handler="MonthlyEveryoneTimesheet" http.callback="WebProtocol.HermesTimesheetService.Impl" http.session_key="api" http.if="Hermes.can_get_timesheet?"]
+        GetMonthlyTimesheetForEveryone => GET /api/timesheet/monthly/{int year}/{int month}/everyone ->
+            200: Collection<MonthlyEmployeeTimesheet>,
+            403: ForbiddenError,
+            404: NotFoundError;
+    }
+
+    [elixir http.server]
+    [ts http.client file="role-protocol.service.ts"]
+    webservice HermesRoleService
+    {
+        # Get roles
+        [elixir http.handler="Roles" http.callback="WebProtocol.HermesRoleService.Impl" http.session_key="api" http.if="Hermes.can_get_roles?" http.hint="list"]
+        GetRoles => GET /api/roles ->
+            200: Collection<Role>,
+            403: ForbiddenError;
+
+        # Get a role
+        [elixir http.handler="Role" http.callback="WebProtocol.HermesRoleService.Impl" http.session_key="api" http.if="Hermes.can_get_role?" http.hint="read"]
+        GetRole => GET /api/roles/{long id} ->
+            200: Role,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Create a role
+        [elixir http.handler="Roles" http.callback="WebProtocol.HermesRoleService.Impl" http.session_key="api" http.if="Hermes.can_create_role?" http.hint="create"]
+        CreateRole => POST /api/roles CreateRoleRequest ->
+            200: Role,
+            400: BadRequestError<RoleError>,
+            403: ForbiddenError;
+
+        # Update a role
+        [elixir http.handler="Role" http.callback="WebProtocol.HermesRoleService.Impl" http.session_key="api" http.if="Hermes.can_update_role?" http.hint="update"]
+        UpdateRole => PUT /api/roles/{long id} UpdateRoleRequest ->
+            200: Role,
+            400: BadRequestError<RoleError>,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Delete a role
+        [elixir http.handler="Role" http.callback="WebProtocol.HermesRoleService.Impl" http.session_key="api" http.if="Hermes.can_delete_role?" http.hint="delete"]
+        DeleteRole => DELETE /api/roles/{long id} ->
+            200: GenericResponse,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Enable a role for the office
+        [elixir http.handler="EnableRole" http.callback="WebProtocol.HermesRoleService.Impl" http.session_key="api" http.if="Hermes.can_modify_role_for_office?" http.hint="update"]
+        EnableRoleForOffice => PUT /api/roles/{long id}/enable/{long office_id} Empty ->
+            200: GenericResponse,
+            400: BadRequestError<RoleForOfficeError>,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Disable a role for the office
+        [elixir http.handler="DisableRole" http.callback="WebProtocol.HermesRoleService.Impl" http.session_key="api" http.if="Hermes.can_modify_role_for_office?" http.hint="update"]
+        DisableRoleForOffice => PUT /api/roles/{long id}/disable/{long office_id} Empty ->
+            200: GenericResponse,
+            400: BadRequestError<RoleForOfficeError>,
+            403: ForbiddenError,
+            404: NotFoundError;
+    }
+
+    [elixir http.server]
+    [ts http.client file="highlight-protocol.service.ts"]
+    webservice HermesHighlightService
+    {
+        # Get highlights
+        [elixir http.handler="Highlights" http.callback="WebProtocol.HermesHighlightService.Impl" http.session_key="api" http.if="Hermes.can_get_highlights?" http.hint="list"]
+        GetHighlights => GET /api/highlights ->
+            200: Collection<Highlight>,
+            403: ForbiddenError;
+
+        # Get a highlight
+        [elixir http.handler="Highlight" http.callback="WebProtocol.HermesHighlightService.Impl" http.session_key="api" http.if="Hermes.can_get_highlight?" http.hint="read"]
+        GetHighlight => GET /api/highlights/{long id} ->
+            200: Highlight,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Create a highlight
+        [elixir http.handler="Highlights" http.callback="WebProtocol.HermesHighlightService.Impl" http.session_key="api" http.if="Hermes.can_create_highlight?" http.hint="create"]
+        CreateHighlight => POST /api/highlights CreateHighlightRequest ->
+            200: Highlight,
+            400: BadRequestError<HighlightError>,
+            403: ForbiddenError;
+
+        # Update a highlight
+        [elixir http.handler="Highlight" http.callback="WebProtocol.HermesHighlightService.Impl" http.session_key="api" http.if="Hermes.can_update_highlight?" http.hint="update"]
+        UpdateHighlight => PUT /api/highlights/{long id} UpdateHighlightRequest ->
+            200: Highlight,
+            400: BadRequestError<HighlightError>,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Delete a highlight
+        [elixir http.handler="Highlight" http.callback="WebProtocol.HermesHighlightService.Impl" http.session_key="api" http.if="Hermes.can_delete_highlight?" http.hint="delete"]
+        DeleteHighlight => DELETE /api/highlights/{long id} ->
+            200: GenericResponse,
+            403: ForbiddenError,
+            404: NotFoundError;
+    }
+
+    [elixir http.server]
+    [ts http.client file="team-protocol.service.ts"]
+    webservice HermesTeamService
+    {
+        # Get teams
+        [elixir http.handler="Teams" http.callback="WebProtocol.HermesTeamService.Impl" http.session_key="api" http.if="Hermes.can_get_teams?" http.hint="list"]
+        GetTeams => GET /api/teams ->
+            200: Collection<Team>,
+            403: ForbiddenError;
+
+        # Get a team
+        [elixir http.handler="Team" http.callback="WebProtocol.HermesTeamService.Impl" http.session_key="api" http.if="Hermes.can_get_team?" http.hint="read"]
+        GetTeam => GET /api/teams/{long id} ->
+            200: Team,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Create a team
+        [elixir http.handler="Teams" http.callback="WebProtocol.HermesTeamService.Impl" http.session_key="api" http.if="Hermes.can_create_team?" http.hint="create"]
+        CreateTeam => POST /api/teams CreateTeamRequest ->
+            200: Team,
+            400: BadRequestError<TeamError>,
+            403: ForbiddenError;
+
+        # Update a team
+        [elixir http.handler="Team" http.callback="WebProtocol.HermesTeamService.Impl" http.session_key="api" http.if="Hermes.can_update_team?" http.hint="update"]
+        UpdateTeam => PUT /api/teams/{long id} UpdateTeamRequest ->
+            200: Team,
+            400: BadRequestError<TeamError>,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Delete a team
+        [elixir http.handler="Team" http.callback="WebProtocol.HermesTeamService.Impl" http.session_key="api" http.if="Hermes.can_delete_team?" http.hint="delete"]
+        DeleteTeam => DELETE /api/teams/{long id} ->
+            200: GenericResponse,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Add user to a team
+        [elixir http.handler="TeamMember" http.callback="WebProtocol.HermesTeamService.Impl" http.session_key="api" http.if="Hermes.can_add_team_members?"]
+        AddTeamMember => PUT /api/teams/{long team_id}/members/{long personnel_id} Empty ->
+            200: GenericResponse,
+            400: BadRequestError<TeamMemberError>,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Remove user from a team
+        [elixir http.handler="TeamMember" http.callback="WebProtocol.HermesTeamService.Impl" http.session_key="api" http.if="Hermes.can_remove_team_members?"]
+        RemoveTeamMember => DELETE /api/teams/{long team_id}/members/{long personnel_id} ->
+            200: GenericResponse,
+            400: BadRequestError<TeamMemberError>,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Get a list of team managers
+        [elixir http.handler="TeamManagers" http.callback="WebProtocol.HermesTeamService.Impl" http.session_key="api" http.if="Hermes.can_get_teams?"]
+        GetTeamManagers => GET /api/teams/{long team_id}/managers ->
+            200: Collection<PersonnelAccount>,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Check if current user is a team manager
+        [elixir http.handler="IsCurrentUserTeamManager" http.callback="WebProtocol.HermesTeamService.Impl" http.session_key="api" http.if="Hermes.can_get_teams?"]
+        IsCurrentUserTeamManager => GET /api/teams/{long team_id}/manager ->
+            200: GenericResponse,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Check if user is a team manager
+        [elixir http.handler="TeamManager" http.callback="WebProtocol.HermesTeamService.Impl" http.session_key="api" http.if="Hermes.can_get_teams?"]
+        IsTeamManager => GET /api/teams/{long team_id}/members/{long personnel_id}/manager ->
+            200: GenericResponse,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Set user as a team manager
+        [elixir http.handler="TeamManager" http.callback="WebProtocol.HermesTeamService.Impl" http.session_key="api" http.if="Hermes.can_set_team_manager?"]
+        SetTeamManager => PUT /api/teams/{long team_id}/members/{long personnel_id}/manager Empty ->
+            200: GenericResponse,
+            400: BadRequestError<TeamManagerError>,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Unset user as a team manager
+        [elixir http.handler="TeamManager" http.callback="WebProtocol.HermesTeamService.Impl" http.session_key="api" http.if="Hermes.can_set_team_manager?"]
+        UnsetTeamManager => DELETE /api/teams/{long team_id}/members/{long personnel_id}/manager ->
+            200: GenericResponse,
+            400: BadRequestError<TeamManagerError>,
+            403: ForbiddenError,
+            404: NotFoundError;
+    }
+
+    [elixir http.server]
+    [ts http.client file="task-protocol.service.ts"]
+    webservice HermesTaskService
+    {
+        # Synchronize with BambooHR
+        [elixir http.handler="TaskSyncBamboo" http.callback="WebProtocol.HermesTaskService.Impl" http.session_key="api" http.if="Hermes.can_sync_bamboo?"]
+        SyncBamboo => PUT /api/tasks/sync_bamboo/monthly/{int year}/{int month} SyncBambooTaskRequest ->
+            200: GenericResponse,
+            403: ForbiddenError;
+
+        # Synchronize with LDAP
+        [elixir http.handler="TaskSyncLdap" http.callback="WebProtocol.HermesTaskService.Impl" http.session_key="api" http.if="Hermes.can_sync_ldap?"]
+        SyncLdap => PUT /api/tasks/sync_ldap Empty ->
+            200: GenericResponse,
+            403: ForbiddenError;
+    }
+
+    [elixir http.server]
+    [ts http.client file="history-protocol.service.ts"]
+    webservice HermesHistoryService
+    {
+        # Get action history
+        [elixir http.handler="History" http.callback="WebProtocol.HermesHistoryService.Impl" http.session_key="api" http.if="Hermes.can_get_timesheet?"]
+        GetHistory => GET /api/history/{string entity}
+            ?needle={?string needle}
+            &order_by={HistoryEntryOrderBy order_by}
+            &order_dir={OrderDirection order_dir}
+            &offset={int offset}
+            &limit={int limit}
+        ->
+            200: CollectionSlice<HistoryEntry>,
+            403: ForbiddenError;
+
+        // Employee roles
+
+        # Get employee role change history
+        [elixir http.handler="EmployeeRoleChangeHistory" http.callback="WebProtocol.HermesHistoryService.Impl" http.session_key="api" http.if="Hermes.can_get_timesheet?" http.hint="list"]
+        GetEmployeeRoleChangeHistory => GET /api/history/role/employee/{long personnel_id} ->
+            200: Collection<HistoryEntry>,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Get employee role change history for particular office
+        [elixir http.handler="EmployeeRoleChangeHistoryForOffice" http.callback="WebProtocol.HermesHistoryService.Impl" http.session_key="api" http.if="Hermes.can_get_timesheet?" http.hint="list"]
+        GetEmployeeRoleChangeHistoryForOffice => GET /api/history/role/office/{long office_id} ->
+            200: Collection<HistoryEntry>,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        // Timesheet
+
+        # Get action history for particular timesheet сells
+        [elixir http.handler="CustomTimesheetHistory" http.callback="WebProtocol.HermesHistoryService.Impl" http.session_key="api" http.if="Hermes.can_get_timesheet?" http.hint="list"]
+        GetCustomTimesheetHistory => GET /api/history/timesheet/cells?cell_ids={[* http.separator=","] list<long> cell_ids} ->
+            200: Collection<HistoryEntry>,
+            403: ForbiddenError;
+
+        # Get monthly history of timesheet for specified year and month and employee
+        [elixir http.handler="MonthlyEmployeeTimesheetHistory" http.callback="WebProtocol.HermesHistoryService.Impl" http.session_key="api" http.if="Hermes.can_get_timesheet?" http.hint="list"]
+        GetMonthlyTimesheetHistoryForEmployee => GET /api/history/timesheet/monthly/{int year}/{int month}/employee/{long personnel_id} ->
+            200: Collection<HistoryEntry>,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Get monthly history of timesheet for specified year and month and project
+        [elixir http.handler="MonthlyProjectTimesheetHistory" http.callback="WebProtocol.HermesHistoryService.Impl" http.session_key="api" http.if="Hermes.can_get_timesheet?" http.hint="list"]
+        GetMonthlyTimesheetHistoryForProject => GET /api/history/timesheet/monthly/{int year}/{int month}/project/{long project_id} ->
+            200: Collection<HistoryEntry>,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Get monthly history of timesheet for specified year and month and office
+        [elixir http.handler="MonthlyOfficeTimesheetHistory" http.callback="WebProtocol.HermesHistoryService.Impl" http.session_key="api" http.if="Hermes.can_get_timesheet?" http.hint="list"]
+        GetMonthlyTimesheetHistoryForOffice => GET /api/history/timesheet/monthly/{int year}/{int month}/office/{long office_id} ->
+            200: Collection<HistoryEntry>,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Get monthly history of timesheet for specified year and month and team
+        [elixir http.handler="MonthlyTeamTimesheetHistory" http.callback="WebProtocol.HermesHistoryService.Impl" http.session_key="api" http.if="Hermes.can_get_timesheet?" http.hint="list"]
+        GetMonthlyTimesheetHistoryForTeam => GET /api/history/timesheet/monthly/{int year}/{int month}/team/{long team_id} ->
+            200: Collection<HistoryEntry>,
+            403: ForbiddenError,
+            404: NotFoundError;
+    }
+
+    [elixir http.server]
+    [ts http.client file="report-protocol.service.ts"]
+    webservice HermesReportService
+    {
+        # Get monthly visma reports for particular office
+        [elixir http.handler="VismaReportsForOffice" http.callback="WebProtocol.HermesReportService.Impl" http.session_key="api" http.if="Hermes.can_get_visma_report?" http.hint="list"]
+        GetVismaReportsForOffice => GET /api/reports/visma/{int year}/{int month}/office/{long office_id} ->
+            200: Collection<VismaReport>,
+            403: ForbiddenError;
+
+        # Get visma report
+        [elixir http.handler="VismaReport" http.callback="WebProtocol.HermesReportService.Impl" http.session_key="api" http.if="Hermes.can_get_visma_report?" http.hint="read"]
+        GetVismaReport => GET /api/reports/visma/{long report_id} ->
+            200: VismaReport,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Create monthly visma report for particular office
+        [elixir http.handler="VismaReports" http.callback="WebProtocol.HermesReportService.Impl" http.session_key="api" http.if="Hermes.can_create_visma_report?" http.hint="create"]
+        CreateVismaReport => POST /api/reports/visma CreateVismaReportRequest ->
+            201: VismaReport,
+            400: BadRequestError<VismaReportError>,
+            403: ForbiddenError;
+
+        # Update visma report
+        [elixir http.handler="VismaReport" http.callback="WebProtocol.HermesReportService.Impl" http.session_key="api" http.if="Hermes.can_update_visma_report?" http.hint="update"]
+        UpdateVismaReport => PUT /api/reports/visma/{long report_id} UpdateVismaReportRequest ->
+            200: VismaReport,
+            403: ForbiddenError,
+            400: BadRequestError<VismaReportError>,
+            404: NotFoundError;
+
+        # Get visma report details
+        [elixir http.handler="VismaReportDownload" http.callback="WebProtocol.HermesReportService.Impl" http.session_key="api" http.if="Hermes.can_get_visma_report?"]
+        DownloadVismaReport => GET /api/reports/visma/{long report_id}/download ->
+            200: ~Content-Type: "application/octet-stream"
+                 ~Content-Disposition: "attachment; filename=\"visma_report.json\""
+                 json,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Deliver Visma report to Visma through Junipeer
+        [elixir http.handler="VismaReportDelivery" http.callback="WebProtocol.HermesReportService.Impl" http.session_key="api" http.if="Hermes.can_create_visma_report?"]
+        DeliverVismaReport => POST /api/reports/visma/{long report_id}/deliver Empty ->
+            200: VismaReport,
+            400: BadRequestError<VismaReportDeliveryError>,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Update Visma report delivery status from Junipeer
+        [elixir http.handler="VismaReportDeliveryStatus" http.callback="WebProtocol.HermesReportService.Impl" http.session_key="api" http.if="Hermes.can_create_visma_report?"]
+        UpdateVismaReportDeliveryStatus => POST /api/reports/visma/{long report_id}/status Empty ->
+            200: VismaReport,
+            400: BadRequestError<VismaReportDeliveryError>,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Get omitted employees for last Visma report
+        [elixir http.handler="VismaReportOmittedEmployees" http.callback="WebProtocol.HermesReportService.Impl" http.session_key="api" http.if="Hermes.can_get_visma_report?"]
+        GetOmittedEmployeesForLastVismaReport => GET /api/reports/visma/omitted/office/{long office_id} ->
+            200: OmittedEmployees,
+            403: ForbiddenError,
+            404: NotFoundError;
+    }
+}

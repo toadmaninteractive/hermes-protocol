@@ -1,0 +1,161 @@
+using CommonProtocol;
+using DataProtocol;
+
+[* json.enabled string.enabled]
+module VismaProtocol
+{
+    [* json.nulls=false]
+    record VismaSummaryEntry
+    {
+        # Internal project ID
+        string projectId;
+
+        # Either PRO or empty string
+        string projectTask;
+
+        # Should be included to an invoice?
+        bool invoiceable;
+
+        # Monday working hours
+        ?int mon;
+
+        # Tuesday working hours
+        ?int tue;
+
+        # Wednesday working hours
+        ?int wed;
+
+        # Thursday working hours
+        ?int thu;
+
+        # Friday working hours
+        ?int fri;
+
+        # Saturday working hours
+        ?int sat;
+
+        # Sunday working hours
+        ?int sun;
+    }
+
+    record VismaWeekEntry
+    {
+        # Year
+        int year;
+
+        # Week number (1 - 53)
+        int week;
+
+        # Internal employee ID
+        string employeeId;
+
+        # Example: DE9_00106_w53_p101
+        string internalRefNr;
+
+        # Week summary
+        list<VismaSummaryEntry> summary;
+    }
+
+    record ExcelEmployeeEntry
+    {
+        # Internal employee ID
+        long uid;
+
+        # Employee name
+        string name;
+
+        # Time-off per month day
+        dict<int, int> time_offs;
+    }
+
+    record ExcelTimeOffReport
+    {
+        string officeName;
+        Date dateFrom;
+        Date dateTo;
+        list<ExcelEmployeeEntry> items;
+    }
+
+    record VismaRoleReportEmployee
+    {
+        long id;
+        string name;
+        string role_title;
+    }
+
+    record VismaRoleReportRole
+    {
+        long id;
+        string title;
+        string visma_code;
+        uint employee_count;
+        uint work_hours;
+        dict<string, uint> work_hours_by_project;
+        uint absence_hours;
+    }
+
+    record VismaRoleReport
+    {
+        long office_id;
+        string office_name;
+        int year;
+        int month;
+        list<VismaRoleReportEmployee> included_employees = [];
+        list<VismaRoleReportEmployee> excluded_employees = [];
+        list<VismaRoleReportRole> roles = [];
+        uint total_work_hours;
+        uint total_absence_hours;
+    }
+
+    [elixir http.server]
+    webservice HermesVismaService
+    {
+        # Get Visma monthly report for an office
+        [elixir http.handler="Report" http.callback="WebProtocol.HermesVismaService.Impl"]
+        GetMonthlyReportForOffice => GET /api/visma/report/monthly/{int year}/{int month}/office/{long office_id}?omit_ids={?list<long> omit_ids}&omit_uids={?list<string> omit_uids}&pretty={?bool pretty} ~x-api-key:{?string api_key} ->
+            // NB: manual serialized due to we want custom pretty-print
+            // 200: ~content-disposition:{string disposition} list<VismaWeekEntry>,
+            200: ~content-type:"application/json" ~content-disposition:{string disposition} binary as binary,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Get Visma monthly report for an office grouped by role
+        [elixir http.handler="ReportByRole" http.callback="WebProtocol.HermesVismaService.Impl" http.session_key="api" http.if="Hermes.can_get_visma_report?"]
+        GetMonthlyReportForOfficeByRole => GET /api/visma/report/monthly/by-role/{int year}/{int month}/office/{long office_id}
+            ?omit_ids={?list<long> omit_ids}
+            &omit_uids={?list<string> omit_uids}
+            &include_ids={?list<long> include_ids}
+            &include_uids={?list<string> include_uids}
+            &included_only={bool included_only = false}
+            &csv={?bool csv}
+        ->
+            // NB: manual serialized due to we want custom pretty-print
+            // 200: ~content-disposition:{string disposition} VismaRoleReport,
+            200: ~content-type:{string content_type} ~content-disposition:{string disposition} binary as binary,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Get timeoff monthly report for an office
+        [elixir http.handler="TimeOffReport" http.callback="WebProtocol.HermesVismaService.Impl"]
+        GetTimeOffMonthlyReportForOffice => GET /api/timeoff/report/monthly/{int year}/{int month}/office/{long office_id} ~x-api-key:{string api_key} ->
+            200: ExcelTimeOffReport,
+            403: ForbiddenError,
+            404: NotFoundError;
+
+        # Get timeoff monthly report for an office in XSLX format
+        [* json.enabled=false]
+        [elixir http.handler="TimeOffExcelReport" http.callback="WebProtocol.HermesVismaService.Impl" http.session_key="api"]
+        GetTimeOffMonthlyReportForOfficeExcel => GET /api/timeoff/report/monthly/{int year}/{int month}/office/{long office_id}/excel?omit_ids={?list<long> omit_ids}&omit_uids={?list<string> omit_uids} ~x-api-key:{?string api_key} ->
+            200: ~content-type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ~content-disposition:{string disposition} binary as binary,
+            403: ForbiddenError,
+            404: NotFoundError;
+    }
+
+    // [elixir http.client http.base_url="Application.get_env(:hermes, :visma)[:xlsx_generator]"]
+    // webservice XlsxGeneratorService
+    // {
+    //     [* json.enabled=false]
+    //     Generate => POST /generate ExcelTimeOffReport ->
+    //         200: ~content-type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ~content-disposition:{string disposition} binary as binary;
+    // }
+}

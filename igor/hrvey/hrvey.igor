@@ -1,0 +1,36 @@
+[* json.enabled string.enabled]
+module HrveyProtocol
+{
+    [elixir json.custom="Util.Date"]
+    define Date string;
+
+    record TimeOffEntry
+    {
+        Date date;
+        string type;
+        string days;
+        string note;
+    }
+
+    record Employee
+    {
+        string employee_id;
+        string name;
+        string email;
+        string office;
+        ?string team;
+        list<TimeOffEntry> time_off = [];
+    }
+
+    [elixir http.client]
+    webservice HrveyApi
+    {
+        GetTimeOffReport => GET /api_reports.json
+            ?per_date={bool per_date}
+            &from={Date from}
+            &to={Date to}
+            ~Accept: "application/json"
+            ~Authorization: {string authorization}
+            -> list<Employee>;
+    }
+}

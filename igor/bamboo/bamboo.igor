@@ -1,0 +1,165 @@
+[* json.enabled string.enabled]
+module BambooProtocol
+{
+    [erlang alias="iso8601:date" json.packer="web_types:date_to_text" json.parser="web_types:date_from_text" string.packer="web_types:date_to_text" string.parser="web_types:date_from_text"]
+    [elixir json.custom="Util.Date"]
+    define Date string;
+
+    [erlang alias="iso8601:datetimems" json.packer="web_types:datetime_to_text" json.parser="web_types:datetime_from_text" string.packer="web_types:datetime_to_text" string.parser="web_types:datetime_from_text"]
+    [elixir json.custom="Util.DateTime"]
+    define DateTime string;
+
+    record BambooInstance
+    {
+        atom key;
+        string company_domain;
+        string api_key;
+    }
+
+    enum Gender
+    {
+        Male;
+        Female;
+    }
+
+    enum EmployeeStatus
+    {
+        Active;
+        Inactive;
+    }
+
+    record Field
+    {
+        string id;
+        string type;
+        string name;
+    }
+
+    record Employee
+    {
+        ?string id;
+        ?string displayName;
+        ?string firstName;
+        ?string lastName;
+        ?string preferredName;
+        ?Gender gender;
+        ?string jobTitle;
+        ?string workEmail;
+        ?string department;
+        ?string location;
+        ?string division;
+        ?bool photoUploaded;
+        ?string photoUrl;
+
+        // Fields not available in directory request
+        ?EmployeeStatus status;
+        ?string supervisor;
+        ?string supervisorId;
+        ?string supervisorEId;
+        ?string supervisorEmail;
+    }
+
+    record EmployeeDirectory
+    {
+        list<Field> fields = [];
+        list<Employee> employees = [];
+    }
+
+    record TimeOffEntry
+    {
+        int id;
+        int employeeId;
+        string name;
+        Date start;
+        Date end;
+        string type;
+    }
+
+    record TimeOffRequestType
+    {
+        string id;
+        string name;
+    }
+
+    record TimeOffRequestStatus
+    {
+        string status;
+    }
+
+    record TimeOffRequest
+    {
+        string id;
+        string employeeId;
+        string name;
+        Date start;
+        Date end;
+        TimeOffRequestStatus status;
+        TimeOffRequestType type;
+    }
+
+    enum YesNo
+    {
+        yes;
+        no;
+    }
+
+    record LastChangedFilter
+    {
+        YesNo includeNull;
+        DateTime value;
+    }
+
+    record CustomReportFilterComposition
+    {
+        LastChangedFilter lastChanged;
+    }
+
+    [* json.nulls=false]
+    record CustomReportParams
+    {
+        ?string title;
+        ?CustomReportFilterComposition filters;
+        list<string> fields = [];
+    }
+
+    record CustomReport
+    {
+        ?string title;
+        list<Field> fields = [];
+        list<Employee> employees = [];
+    }
+
+    [erlang http.client http.base_url="bamboo_config:api_url()" http.default_client_headers="bamboo_auth:default_headers()"]
+    [elixir http.client]
+    webservice BambooApi
+    {
+        GetEmployee => GET /{string company_domain}/v1/employees/{string id}
+            ?fields=id,displayName,firstName,lastName,preferredName,gender,jobTitle,workEmail,department,location,division,photoUploaded,photoUrl,status,supervisor,supervisorId,supervisorEId,supervisorEmail
+            ~Accept: "application/json"
+            ~Authorization: {string authorization}
+            -> Employee;
+
+        GetEmployeeDirectory => GET /{string company_domain}/v1/employees/directory
+            ~Accept: "application/json"
+            ~Authorization: {string authorization}
+            -> EmployeeDirectory;
+
+        GetWhosOut => GET /{string company_domain}/v1/time_off/whos_out
+            ?start={Date start_date}&end={Date end_date}
+            ~Accept: "application/json"
+            ~Authorization: {string authorization}
+            -> list<TimeOffEntry>;
+
+        GetTimeOffRequests => GET /{string company_domain}/v1/time_off/requests
+            ?start={Date start_date}&end={Date end_date}
+            ~Accept: "application/json"
+            ~Authorization: {string authorization}
+            -> list<TimeOffRequest>;
+
+        RequestCustomReport => POST /{string company_domain}/v1/reports/custom?format=JSON
+            ~Accept: "application/json"
+            ~Authorization: {string authorization}
+            CustomReportParams
+            -> CustomReport;
+    }
+}

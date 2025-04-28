@@ -1,0 +1,56 @@
+[* json.enabled string.enabled]
+[ts file="data-protocol.ts"]
+module DataProtocol
+{
+    // Ordering
+    enum OrderDirection {
+        asc;
+        desc;
+    }
+
+    // Generic collections
+    record Collection<T>
+    {
+        list<T> items;
+    }
+
+    record CollectionSlice<T>
+    {
+        int total;
+        list<T> items;
+    }
+
+    record TreeNode<T>
+    {
+        ?T item;
+        list<TreeNode<T>> children = [];
+    }
+
+    // Generic result and response
+    interface IResult
+    {
+        bool result;
+    }
+
+    record GenericResponse: IResult
+    {
+    }
+
+    exception BadRequestError<T>
+    {
+        T error;
+    }
+
+    exception ForbiddenError
+    {
+    }
+
+    exception NotFoundError
+    {
+    }
+
+    exception InternalServerError
+    {
+        string error;
+    }
+}

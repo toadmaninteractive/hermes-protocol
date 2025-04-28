@@ -1,0 +1,396 @@
+using CommonProtocol;
+
+[* json.enabled string.enabled enum_descriptions]
+[ts file="db-protocol.ts"]
+module DbProtocol
+{
+    enum AccessRole
+    {
+        # Maintainer
+        maintainer;
+
+        # Administrator
+        admin;
+    }
+
+    record AccessRoleObject
+    {
+        ?AccessRole role;
+    }
+
+    [elixir db.entity="Repo.User" db.preload="office office.country groups supervisor project projects role highlights.project highlights.highlight"]
+    record PersonnelAccount
+    {
+        long id;
+        int rev;
+        string username;
+        ?string name;
+        ?string email;
+        ?string phone;
+        ?long office_id;
+        [elixir db.take="office?.name"]
+        ?string office_name;
+        [elixir db.take="office?.country?.alpha2"]
+        ?string office_country_alpha2;
+        [elixir db.take="office?.country?.name"]
+        ?string office_country_name;
+        ?string department;
+        ?string job_title;
+        bool is_blocked;
+        bool is_deleted;
+        [elixir db.take="fn x -> Enum.any?(x.groups, & &1.is_superadmin) end"]
+        bool is_superadmin;
+        bool is_office_manager;
+        ?long supervisor_id;
+        ?string location;
+        [elixir db.take="supervisor?.username"]
+        ?string supervisor_username;
+        [elixir db.take="supervisor?.name"]
+        ?string supervisor_name;
+        [elixir db.take="project?.id"]
+        ?long allocated_to_project_id;
+        [elixir db.take="project?.title"]
+        ?string allocated_to_project_name;
+        [elixir db.take="fn x -> x.projects |> Enum.map(& Util.take(&1, project_id: :project_id, since: :created_at)) end"]
+        json linked_to_projects;
+        ?long role_id;
+        [elixir db.take="role?.code"]
+        ?string role_code;
+        [elixir db.take="role?.title"]
+        ?string role_title;
+        [elixir db.take="fn x -> x.highlights |> Enum.group_by(& &1.project.id, & Util.take(&1, code: [:highlight, :code], title: [:highlight, :title], since: :created_at, project: [:project, :title])) end"]
+        json highlights;
+        ?DateTime hired_at;
+        ?DateTime fired_at;
+        DateTime created_at;
+        DateTime updated_at;
+    }
+
+    record PersonnelAccountRole
+    {
+        long personnel_id;
+        string username;
+        long project_id;
+        string project_name;
+        ?dict<string, AccessRoleObject> group_roles;
+        ?AccessRole user_role;
+    }
+
+    [elixir db.entity="Repo.Group" db.preload="users"]
+    record PersonnelGroup
+    {
+        long id;
+        int rev;
+        string name;
+        ?string description;
+        bool is_deleted;
+        [elixir db.take="fn x -> Enum.map(x.users, & &1.username) end"]
+        list<string> members;
+        [elixir db.take="fn x -> length(x.users) end"]
+        int member_count;
+        bool is_superadmin;
+        DateTime created_at;
+        DateTime updated_at;
+    }
+
+    record PersonnelGroupRole
+    {
+        long group_id;
+        string group_name;
+        long project_id;
+        string project_name;
+        ?AccessRole group_role;
+    }
+
+    record PersonnelSession
+    {
+        string id;
+        long personnel_id;
+        string username;
+        DateTime created_at;
+        DateTime valid_thru;
+    }
+
+    [elixir db.entity="Repo.Country" db.preload=""]
+    record Country
+    {
+        int id;
+        string name;
+        string alpha2;
+        string alpha3;
+        DateTime created_at;
+    }
+
+    [elixir db.entity="Repo.Office" db.preload="country group roles"]
+    record Office
+    {
+        long id;
+        int rev;
+        string name;
+        int country_id;
+        [elixir db.take="country?.alpha2"]
+        string country_alpha2;
+        [elixir db.take="country?.name"]
+        string country_name;
+        ?string city;
+        ?string address;
+        ?string postal_code;
+        ?long group_id;
+        [elixir db.take="group?.name"]
+        ?string group_name;
+        [elixir db.take="fn x -> Enum.map(x.roles, & &1.role_id) end"]
+        list<long> allowed_roles;
+        ?string visma_country;
+        ?string visma_company_id;
+        DateTime created_at;
+        DateTime updated_at;
+    }
+
+    [elixir db.entity="Repo.Project" db.preload="supervisor leading_office"]
+    record Project
+    {
+        long id;
+        int rev;
+        string title;
+        string key;
+        ?string color;
+        ?long supervisor_id;
+        [elixir db.take="supervisor?.username"]
+        ?string supervisor_username;
+        [elixir db.take="supervisor?.name"]
+        ?string supervisor_name;
+        long leading_office_id;
+        [elixir db.take="leading_office?.name"]
+        string leading_office_name;
+        string finance_code;
+        bool invoiceable;
+        bool is_archived = false;
+        TaskKind task_code;
+        ?DateTime started_at;
+        ?DateTime finished_at;
+        DateTime created_at;
+        DateTime updated_at;
+    }
+
+    enum TimeOffKind
+    {
+        ////////////////////
+        // Visma-specific //
+        ////////////////////
+
+        # Vacation
+        vacation;           // 101
+
+        # Vacation Paid
+        paid_vacation;      // 101
+
+        # Vacation Unpaid
+        unpaid_vacation;    // 100
+
+        # Absence
+        absence;            // 100
+
+        # Travel
+        travel;             // 101
+
+        # Care of Child
+        vab;                // 101
+
+        # Sick Paid
+        sick;               // 101
+
+        # Sick Unpaid
+        unpaid_sick;        // 100
+
+        # Bank Day / Holiday
+        holiday;            // 101
+
+        # Empty
+        empty;              // 101
+
+        # Leave Parental
+        parental_leave;     // 101
+
+        # Leave Maternity
+        maternity_leave;    // 101
+
+        /////////////////////
+        // Hermes-specific //
+        /////////////////////
+
+        # Time Off
+        time_off;           // 101
+
+        # Leave Temporary
+        temp_leave;         // 101
+    }
+
+    enum TaskKind
+    {
+        # Project
+        project;    // PRO
+
+        # Continue Development
+        cont_dev;   // CDEV
+
+        # Research & Development
+        rnd;        // RND
+    }
+
+    [elixir db.entity="Repo.TimeCell" db.preload="user project"]
+    record TimesheetCell
+    {
+        long id;
+        [elixir db.take="user.id"]
+        long personnel_id;
+        [elixir db.take="user.username"]
+        string personnel_username;
+        [elixir db.take="user.name"]
+        string personnel_name;
+        bool is_protected;
+        ?long project_id;
+        [elixir db.take="project?.title"]
+        ?string project_name;
+        ?TimeOffKind time_off;
+        [elixir db.take="fn x -> Date.to_iso8601(x.slot_date) end"]
+        string cell_date_iso; // Local date: YYYYMMDD
+        [elixir db.take="slot_date"]
+        DateTime cell_date;
+        ?string comment;
+        DateTime created_at;
+        DateTime updated_at;
+    }
+
+    [elixir db.entity="Repo.Role" db.preload=""]
+    record Role
+    {
+        long id;
+        int rev;
+        string code;
+        string title;
+        DateTime created_at;
+        DateTime updated_at;
+    }
+
+    [elixir db.entity="Repo.Team" db.preload="users owner"]
+    record Team
+    {
+        long id;
+        int rev;
+        string title;
+        [elixir db.take="fn x -> Enum.map(x.users, & &1.username) end"]
+        list<string> members;
+        ?long created_by;
+        [elixir db.take="owner?.username"]
+        ?string created_by_username;
+        [elixir db.take="owner?.name"]
+        ?string created_by_name;
+        DateTime created_at;
+        DateTime updated_at;
+    }
+
+    enum HistoryActor {
+        user;
+        robot;
+        anonymous;
+    }
+
+    enum HistoryEntity {
+        auth;
+        session;
+        settings;
+        user;
+        group;
+        group_membership;
+        country;
+        role;
+        office;
+        project;
+        team;
+        team_membership;
+        timecell;
+    }
+
+    enum HistoryOperation {
+        create;
+        read;
+        update;
+        delete;
+        undelete;
+        block;
+        unblock;
+        login;
+        logout;
+        allocate;
+        deallocate;
+        protect;
+        unprotect;
+        absence;
+    }
+
+    [elixir db.entity="Repo.History"]
+    record HistoryEntry
+    {
+        long id;
+        HistoryActor actor;
+        ?long actor_id;
+        ?string actor_name;
+        ?string actor_username;
+        HistoryEntity entity;
+        ?long entity_id;
+        ?string entity_param;
+        HistoryOperation operation;
+        bool is_bulk;
+        json properties;
+        bool result;
+        ?string comment;
+        DateTime created_at;
+    }
+
+    enum ReportStatus
+    {
+        created;
+        running;
+        stopped;
+        completed;
+        error;
+        scheduled;
+    }
+
+    [elixir db.entity="Repo.VismaReport"]
+    record VismaReport
+    {
+        long id;
+        long office_id;
+        string office_name;
+        int year;
+        int month;
+        string comment;
+        // json report; // Retrieved via separate API call
+        ?list<long> omit_ids = [];
+        ?list<string> omit_uids = [];
+        long created_by;
+        string created_by_username;
+        string created_by_name;
+        ?long updated_by;
+        ?string updated_by_username;
+        ?string updated_by_name;
+        ?string delivery_task_id;
+        ?json delivery_data;
+        ?ReportStatus delivery_status;
+        ?DateTime delivered_at;
+        DateTime created_at;
+        DateTime updated_at;
+    }
+
+    [elixir db.entity="Repo.Highlight" db.preload=""]
+    record Highlight
+    {
+        long id;
+        int rev;
+        string code;
+        string title;
+        DateTime created_at;
+        DateTime updated_at;
+    }
+}

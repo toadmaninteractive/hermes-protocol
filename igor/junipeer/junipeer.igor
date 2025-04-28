@@ -1,0 +1,77 @@
+using CommonProtocol;
+using DbProtocol;
+
+[* json.enabled string.enabled]
+module JunipeerProtocol
+{
+    record ReportEnvelope
+    {
+        # Country
+        string country;
+
+        # Office ID
+        string company_id;
+
+        # Visma report JSON as is
+        json data;
+    }
+
+    record JunipeerError
+    {
+        ?string message;
+        ?int code;
+        ?json trace;
+    }
+
+    record SubmitReportResponse
+    {
+        string task_id;
+    }
+
+    record ReportProcessingStats
+    {
+        uint total_succeeded;
+        uint total_ignored;
+        uint total_errors;
+    }
+
+    record ReportLogEntry
+    {
+        string message;
+        bool success;
+        ?list<string> errors;
+        DateTime created_at;
+    }
+
+    record ReportStatusResponse
+    {
+        string task_id;
+        ReportStatus status;
+        ReportProcessingStats stats;
+        list<ReportLogEntry> logs = [];
+        DateTime created_at;
+        ?DateTime updated_at;
+    }
+
+    [erlang http.client http.base_url="https://api.junipeer.io/yourcompany"]
+    [elixir http.client http.base_url="Application.get_env(:hermes, :junipeer)[:url]"]
+    webservice JunipeerApi
+    {
+        SubmitVismaReport => POST /v1/time-report
+            ~Authorization: {string authorization}
+            ReportEnvelope
+        ->
+            201: SubmitReportResponse,
+            400: JunipeerError,
+            401: JunipeerError,
+            404: JunipeerError;
+
+        GetVismaReportStatus => GET /v1/tasks/{string task_id}
+            ~Authorization: {string authorization}
+        ->
+            200: ReportStatusResponse,
+            400: JunipeerError,
+            401: JunipeerError,
+            404: JunipeerError;
+    }
+}

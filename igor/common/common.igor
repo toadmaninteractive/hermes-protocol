@@ -1,0 +1,17 @@
+[* json.enabled string.enabled]
+[ts file="common-protocol.ts"]
+module CommonProtocol
+{
+    [elixir json.custom="Util.Date" string.custom="Util.Date"]
+    [ts alias="Date" json.serializer="Igor.Json.DateSerializer"]
+    define Date string;
+
+    [elixir json.custom="Util.DateTime"]
+    [ts alias="Date" json.serializer="Igor.Json.DateTimeSerializer"]
+    [schema editor=datetime]
+    define DateTime string;
+
+    record Empty
+    {
+    }
+}
