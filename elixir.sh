@@ -6,10 +6,11 @@ mkdir -p $DIR
 
 mono bin/igorc-elixir.exe -d -v -t elixir \
     -x 'gen_elixir/*.cs' \
+    -p igor/config \
     -p igor/common \
     -p igor/db \
-    -p igor/chronos \
     -p igor/bamboo \
+    -p igor/hrvey \
     -p igor/visma \
     -p igor/junipeer \
     -p igor/web \

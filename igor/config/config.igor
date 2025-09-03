@@ -1,0 +1,92 @@
+using DbProtocol;
+
+[* json.enabled]
+module ConfigProtocol
+{
+    record Config {
+        Web web;
+        Db db;
+        Ldap ldap;
+        Access access;
+        dict<atom, Bamboo> bamboo;
+        Hrvey hrvey;
+        Junipeer junipeer;
+        Visma visma;
+    }
+
+    record Web {
+        string ip = "127.0.0.1"; // 172.17.0.1
+        int port = 39100;
+        WebCors cors;
+        WebSession session;
+        list<string> api_keys = [];
+    }
+    record WebCors {
+        string fallback_origin;
+        list<string> allowed_origins;
+    }
+    record WebSession {
+        string secret;
+        string encryption_salt;
+        string signing_salt;
+    }
+
+    record Db {
+        string url;
+    }
+
+    record Ldap {
+        string server;
+        int port = 389;
+        bool ssl = false;
+        string user_dn;
+        string password;
+        string base;
+        LdapAttrs attr;
+    }
+    record LdapAttrs {
+        string class = "objectClass";
+        string class_value_user = "person";
+        string class_value_group = "group";
+        string user_id = "sAMAccountName";
+        string user_name = "cn";
+        string user_email = "mail";
+        string user_office = "o";
+        string group_name = "cn";
+        string group_members = "member";
+    }
+
+    record Access {
+        atom auth_realm;
+        string admin_group;
+        bool local_admin = false;
+    }
+
+    record Bamboo {
+        string base_url;
+        string company_domain;
+        string api_key;
+        dict<string, TimeOffKind> timeoffs = [];
+    }
+
+    record Hrvey {
+        string url;
+        string email;
+        string password;
+        dict<string, TimeOffKind> timeoffs = [];
+    }
+
+    record Junipeer {
+        string url;
+        string username;
+        string password;
+    }
+
+    record Visma {
+        dict<string, VismaOffice> offices = [];
+        string xlsx_generator;
+    }
+    record VismaOffice {
+        string api_key;
+    }
+}
