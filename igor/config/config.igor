@@ -8,6 +8,7 @@ module ConfigProtocol
         Db db;
         Ldap ldap;
         Access access;
+        dict<atom, CronJob> jobs = [];
         dict<atom, Bamboo> bamboo;
         Hrvey hrvey;
         Junipeer junipeer;
@@ -60,6 +61,13 @@ module ConfigProtocol
         atom auth_realm;
         string admin_group;
         bool local_admin = false;
+    }
+
+    record CronJob {
+        string schedule;
+        ?atom module;
+        ?atom function;
+        list<json> arguments = [];
     }
 
     record Bamboo {
