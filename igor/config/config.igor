@@ -42,8 +42,12 @@ module ConfigProtocol
         bool ssl = false;
         string user_dn;
         string password;
-        string base;
+        LdapBase base;
         LdapAttrs attr;
+    }
+    record LdapBase {
+        string users;
+        string groups;
     }
     record LdapAttrs {
         string class = "objectClass";
